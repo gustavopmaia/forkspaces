@@ -34,7 +34,7 @@ Today Forkspaces supports Claude Desktop only. The design could support other ap
 ## Requirements
 
 - macOS 13 or later
-- Apple Silicon
+- Apple Silicon or Intel
 - [Claude Desktop](https://claude.ai/download) installed in `/Applications`
 
 ## Installation
