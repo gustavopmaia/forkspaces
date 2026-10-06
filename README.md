@@ -41,8 +41,6 @@ Today Forkspaces supports Claude Desktop only. The design could support other ap
 
 1. Download `Forkspaces.dmg` from [Releases](../../releases) and open it.
 2. Drag `Forkspaces.app` to `Applications`.
-3. Release builds are not notarized yet. The first time, open it from **System Settings → Privacy & Security → Open Anyway**
-   (or run `xattr -dr com.apple.quarantine /Applications/Forkspaces.app`).
 
 ## Build from Source
 

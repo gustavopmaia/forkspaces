@@ -41,10 +41,11 @@ info = {'CFBundleIdentifier': 'dev.gustavomaia.forkspaces', 'CFBundleName': 'For
 (app / 'Contents/Info.plist').write_bytes(plistlib.dumps(info))
 PY
 
-# Space launchers are always re-signed ad-hoc on the user's Mac; only the manager uses SIGN_IDENTITY.
-codesign --force --sign - --timestamp=none "$APP/Contents/Resources/ForkspacesLauncher"
+# The launcher template is signed like the rest so the app can be notarized; each space's copy
+# is re-signed ad-hoc on the user's Mac (BundleBuilder.codesign).
 OPTS=(--force --sign "$SIGN_IDENTITY" --options runtime)
 [[ "$SIGN_IDENTITY" == "-" ]] && OPTS+=(--timestamp=none) || OPTS+=(--timestamp)
+codesign $OPTS "$APP/Contents/Resources/ForkspacesLauncher"
 codesign $OPTS "$APP/Contents/Resources/ForkspacesTool"
 codesign $OPTS "$APP"
 codesign --verify --deep --strict "$APP"
