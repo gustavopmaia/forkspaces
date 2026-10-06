@@ -15,15 +15,22 @@ final class Model: ObservableObject {
     @Published var routingActive = false
     @Published var icons: [String: NSImage] = [:]
     @Published var quitRequest: QuitRequest?
+    @Published var claudeVersion: String?
     let store = ProfileStore(locations: .standard,
                              builder: BundleBuilder(resources: Bundle.main.resourceURL!, source: officialApp))
     var routing: LoginRouting { LoginRouting(root: store.locations.data) }
     var detected: Bool { fileManager.fileExists(atPath: officialApp.path) }
+    /// Spaces built from an older Claude than the one in /Applications. Local comparison only.
+    var outdated: [Profile] {
+        guard let claudeVersion else { return [] }
+        return profiles.filter { $0.sourceVersion.compare(claudeVersion, options: .numeric) == .orderedAscending }
+    }
 
     init() { reload() }
     func reload() {
         do { profiles = try store.load() }
         catch { self.error = error.localizedDescription }
+        claudeVersion = (try? readPlist(officialApp.appendingPathComponent("Contents/Info.plist")))?["CFBundleShortVersionString"] as? String
         icons = Dictionary(uniqueKeysWithValues: profiles.map { p in
             (p.id, iconPreview(initial: p.iconInitial, color: p.color, image: NSImage(contentsOf: store.locations.customIcon(p))))
         })
@@ -59,6 +66,22 @@ final class Model: ObservableObject {
     func rebuild(_ p: Profile) {
         let store = store
         perform("Rebuilding \(p.name)…") { _ = try store.update(p, name: p.name, color: p.color, rebuild: true); return nil }
+    }
+    /// Rebuilds stopped outdated spaces one by one; data is kept. Running spaces are skipped.
+    func rebuildAll() {
+        let store = store, targets = outdated.filter { !running.contains($0.id) }
+        let skipped = outdated.filter { running.contains($0.id) }.map(\.name)
+        perform("Rebuilding \(targets.count) spaces…") {
+            var failed: [String] = []
+            for p in targets {
+                do { _ = try store.update(p, name: p.name, color: p.color, rebuild: true) }
+                catch { failed.append("\(p.name): \(error.localizedDescription)") }
+            }
+            var lines = ["Rebuilt \(targets.count - failed.count) of \(targets.count) spaces. Their data was kept."]
+            if !skipped.isEmpty { lines.append("Skipped (running): \(skipped.joined(separator: ", ")). Stop them and rebuild again.") }
+            if !failed.isEmpty { throw Failure((lines + failed).joined(separator: "\n")) }
+            return lines.joined(separator: "\n")
+        }
     }
     func duplicate(_ p: Profile, name: String) {
         let store = store
@@ -215,6 +238,17 @@ struct ContentView: View {
                     .keyboardShortcut("n").disabled(!model.detected || model.busy != nil)
             }.padding(24)
             Divider()
+            if let version = model.claudeVersion, case let outdated = model.outdated, !outdated.isEmpty {
+                HStack {
+                    Image(systemName: "arrow.triangle.2.circlepath").foregroundStyle(.orange)
+                    Text("Claude was updated to \(version). \(outdated.count == 1 ? "1 space uses" : "\(outdated.count) spaces use") an older version.")
+                    Spacer()
+                    Button("Rebuild All") { model.rebuildAll() }
+                        .disabled(model.busy != nil || outdated.allSatisfy { model.running.contains($0.id) })
+                        .help("Rebuilds stopped spaces from Claude. Data is kept; running spaces are skipped.")
+                }.font(.callout).padding(.horizontal, 24).padding(.vertical, 10)
+                Divider()
+            }
             if model.profiles.isEmpty {
                 VStack(spacing: 12) {
                     Image(systemName: "person.crop.square.stack").font(.system(size: 40)).foregroundStyle(.secondary)
@@ -234,6 +268,8 @@ struct ContentView: View {
                             HStack(spacing: 5) {
                                 Circle().fill(running ? Color.green : Color.secondary).frame(width: 6, height: 6)
                                 Text(running ? "Running" : "Stopped").font(.caption).foregroundStyle(.secondary)
+                                Text("· Claude \(p.sourceVersion)").font(.caption)
+                                    .foregroundStyle(model.outdated.contains(p) ? Color.orange : Color.secondary)
                             }
                         }
                         Spacer()
@@ -274,6 +310,9 @@ struct ContentView: View {
             }.font(.callout).padding(16)
         }
         .onReceive(timer) { _ in model.refreshStatus() }
+        .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+            if model.busy == nil { model.reload() }
+        }
         .sheet(item: $editor) { target in
             ProfileEditor(profile: target.profile, profiles: model.profiles, store: model.store, originalAvailable: fileManager.fileExists(atPath: model.store.locations.original.path)) {
                 model.save(target.profile, $0)
