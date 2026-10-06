@@ -1,0 +1,43 @@
+name: Bug report
+description: Something in Forkspaces does not work as expected
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Do not include authentication tokens, cookies, account data or private conversations.**
+        Security problems (authentication, filesystem, isolation, process execution) should be reported privately — see SECURITY.md.
+  - type: input
+    id: version
+    attributes: { label: Forkspaces version, description: "Forkspaces → About Forkspaces", placeholder: "0.1.0 (1)" }
+    validations: { required: true }
+  - type: input
+    id: macos
+    attributes: { label: macOS version, placeholder: "macOS 15.5" }
+    validations: { required: true }
+  - type: dropdown
+    id: arch
+    attributes: { label: Architecture, options: [Apple Silicon, Intel, Not sure] }
+    validations: { required: true }
+  - type: input
+    id: claude
+    attributes: { label: Claude Desktop version, description: "Claude → About Claude" }
+    validations: { required: true }
+  - type: textarea
+    id: steps
+    attributes: { label: Steps to reproduce, placeholder: "1. Create a space…\n2. …" }
+    validations: { required: true }
+  - type: textarea
+    id: expected
+    attributes: { label: Expected behavior }
+    validations: { required: true }
+  - type: textarea
+    id: actual
+    attributes: { label: Actual behavior }
+    validations: { required: true }
+  - type: textarea
+    id: logs
+    attributes:
+      label: Relevant logs (sanitized)
+      description: Remove usernames, emails, paths with personal names, tokens and anything from your conversations.
+      render: text

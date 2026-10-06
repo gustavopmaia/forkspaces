@@ -1,0 +1,10 @@
+<!doctype html><html lang="en"><meta charset="utf-8"><meta name="color-scheme" content="dark light"><title>Forkspaces Help</title>
+<style>body{font:15px -apple-system,sans-serif;max-width:680px;margin:40px auto;padding:0 20px;line-height:1.5}code{font-size:13px}h2{margin-top:28px}</style>
+<h1>Forkspaces</h1><p>Forkspaces creates isolated spaces for Claude Desktop. Each space opens as its own macOS app with its own sign-in, history and settings. The original Claude is never modified.</p>
+<h2>Spaces</h2><p><b>New Space</b> starts empty, from your existing Claude installation, or from another space. <b>Duplicate Space</b> makes an independent copy. <b>Import Space Data</b> replaces a space's Claude data with a copy from another source; the previous data is backed up first.</p>
+<h2>Open, Stop and edit</h2><p>Stop asks only that space to quit normally. Close a space before editing, importing into it or deleting it. Changing the icon or color only updates its launcher; renaming rebuilds it. Claude data is never touched by these actions.</p>
+<h2>Where things live</h2><p>Space data: <code>~/Library/Application Support/Forkspaces/profiles/</code><br>Launchers: <code>~/Applications/Forkspaces/</code><br>Deleted spaces and import backups: <code>~/Library/Application Support/Forkspaces/Backups/</code></p>
+<h2>After updating Claude</h2><p>Each space uses its own copy of Claude. After Claude updates, use <b>Rebuild from Claude</b> on each space; its data is kept.</p>
+<h2>Sign-in</h2><p>Sign in inside each space as usual. If the browser returns to the wrong space, use <b>Sign-in Help</b> to route the login to that space, then restore the previous routing.</p>
+<h2>Privacy and limits</h2><p>Everything runs locally. Forkspaces has no account, backend or telemetry and never reads chats, cookies or tokens. Spaces separate accounts; they are not a security sandbox — all spaces run as your macOS user, and some system logs and services stay shared.</p>
+</html>

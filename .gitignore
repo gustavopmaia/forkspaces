@@ -1,0 +1,21 @@
+# macOS
+.DS_Store
+
+# Build output (attach build/Forkspaces.zip to GitHub Releases instead)
+.build/
+build/
+DerivedData/
+*.xcuserstate
+xcuserdata/
+
+# Logs and temporary files
+*.log
+*.tmp
+*.swp
+*~
+
+# Local Space data, integration runs and private notes — never commit
+*.iconset/
+.local-archive/
+profiles/
+Backups/
