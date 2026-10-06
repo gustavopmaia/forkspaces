@@ -4,7 +4,7 @@ Thanks for helping. Keep changes small and focused.
 
 ## Requirements
 
-- macOS 13+ on Apple Silicon
+- macOS 13+ (Apple Silicon or Intel)
 - Xcode or Command Line Tools (Swift 5.9+)
 - Claude Desktop in `/Applications` (needed to create spaces and run the integration test)
 

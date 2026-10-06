@@ -20,10 +20,18 @@ mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
 COMMON=($SRC/Profile.swift $SRC/Icon.swift)
 CORE=($COMMON $SRC/BundleBuilder.swift $SRC/ProfileStore.swift)
-FLAGS=(-O -whole-module-optimization -target arm64-apple-macos13.0 -module-cache-path .build/module-cache)
-swiftc $FLAGS $COMMON $SRC/Launcher.swift -o "$APP/Contents/Resources/ForkspacesLauncher"
-swiftc $FLAGS $CORE $SRC/Tool.swift -o "$APP/Contents/Resources/ForkspacesTool"
-swiftc $FLAGS $CORE $SRC/LoginRouting.swift $SRC/App.swift -o "$APP/Contents/MacOS/Forkspaces"
+# Universal binaries: build each slice, then merge with lipo.
+compile() {  # compile <output> <sources…>
+  local out="$1" arch; shift
+  for arch in arm64 x86_64; do
+    swiftc -O -whole-module-optimization -target $arch-apple-macos13.0 -module-cache-path .build/module-cache "$@" -o "$STAGE/slice.$arch"
+  done
+  lipo -create "$STAGE/slice.arm64" "$STAGE/slice.x86_64" -output "$out"
+  rm "$STAGE/slice.arm64" "$STAGE/slice.x86_64"
+}
+compile "$APP/Contents/Resources/ForkspacesLauncher" $COMMON $SRC/Launcher.swift
+compile "$APP/Contents/Resources/ForkspacesTool" $CORE $SRC/Tool.swift
+compile "$APP/Contents/MacOS/Forkspaces" $CORE $SRC/LoginRouting.swift $SRC/App.swift
 cp Resources/Space.entitlements Resources/Help.html "$APP/Contents/Resources/"
 "$APP/Contents/Resources/ForkspacesTool" icon "$APP/Contents/Resources/Forkspaces.icns"
 
