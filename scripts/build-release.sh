@@ -8,7 +8,7 @@ cd "${0:A:h:h}"
 VERSION="$(tr -d '[:space:]' < VERSION)"
 BUILD_NUMBER="${BUILD_NUMBER:-1}"
 SIGN_IDENTITY="${SIGN_IDENTITY:--}"
-REPOSITORY_URL="https://github.com/gustavomaia/forkspaces"
+REPOSITORY_URL="https://github.com/gustavopmaia/forkspaces"
 SRC=Sources/Forkspaces
 
 rm -rf build/Forkspaces.app build/Forkspaces.dmg

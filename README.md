@@ -10,7 +10,12 @@ application data, launchers and custom icons — without modifying the original 
 
 Forkspaces is source-available and free for personal and internal business use.
 
-<!-- Screenshot: add docs/images/screenshot.png (fictional spaces only: Personal, Work, Side Project). -->
+<p align="center"><img src="docs/images/spaces.png" width="560" alt="Forkspaces main window with Personal and Work spaces"></p>
+
+<p align="center">
+  <img src="docs/images/new-space.png" width="400" alt="New Space sheet">
+  <img src="docs/images/edit-space.png" width="400" alt="Edit Space sheet">
+</p>
 
 ## Features
 
@@ -44,7 +49,7 @@ Today Forkspaces supports Claude Desktop only. The design could support other ap
 Requires Xcode or the Command Line Tools (`xcode-select --install`).
 
 ```sh
-git clone https://github.com/gustavomaia/forkspaces.git
+git clone https://github.com/gustavopmaia/forkspaces.git
 cd forkspaces
 ./scripts/build-release.sh          # → build/Forkspaces.app and build/Forkspaces.dmg
 open build/Forkspaces.app

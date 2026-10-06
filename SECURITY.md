@@ -8,9 +8,8 @@ Bugs in those areas can expose accounts, so please report them privately.
 **Do not open a public issue** for problems involving authentication, sessions, the filesystem,
 isolation between spaces, code signing or process execution.
 
-<!-- TODO before publishing: enable "Private vulnerability reporting" in the GitHub repository
-     settings (Security → Advisories) or add a private contact address here. -->
-Report privately through GitHub: **Security → Report a vulnerability** in this repository.
+Report privately through GitHub: [**Report a vulnerability**](https://github.com/gustavopmaia/forkspaces/security/advisories/new)
+(Security tab → Report a vulnerability). Only the maintainer can see the report.
 
 Include the Forkspaces, macOS and Claude Desktop versions, steps to reproduce and the impact.
 Never include tokens, cookies, account data or conversations.
