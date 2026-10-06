@@ -59,9 +59,6 @@ Builds are signed ad-hoc by default, so no Apple Developer account is needed.
 To sign with your own identity, use `SIGN_IDENTITY="Developer ID Application: …" ./scripts/build-release.sh`.
 The version comes from [`VERSION`](VERSION).
 
-To publish a release: `./scripts/release.sh 0.2.0`. It sets `VERSION`, builds and verifies `Forkspaces.dmg`,
-then asks before committing, tagging `v0.2.0`, pushing and publishing the GitHub Release (dmg + SHA-256) with `gh`.
-
 Integration tests build real spaces in a throwaway folder (they need Claude Desktop installed):
 
 ```sh
