@@ -51,6 +51,7 @@ struct Tool {
             catch let e as Failure { guard e.message.contains("already exists") else { throw e } }
             let marker = store.locations.storage(work).appendingPathComponent("test-preserved.txt")
             try Data("not credentials".utf8).write(to: marker)
+            try require(diskUsage(store.locations.storage(work)) >= Int64("not credentials".utf8.count), "disk usage counts space data")
             let renamed = try store.update(work, name: "Work Test", color: profileColors[2])
             try require(fileManager.fileExists(atPath: marker.path), "rebuild preserves storage")
             try require(!fileManager.fileExists(atPath: store.locations.app(work).path), "old app renamed")
