@@ -38,6 +38,8 @@ struct Launcher {
         // Keep the lock in this process, but never pass it to Electron's helpers.
         _ = fcntl(lock, F_SETFD, FD_CLOEXEC)
         defer { close(lock) }
+        // Best effort, before Electron can start the VM. Failure leaves images intact.
+        _ = try? optimizeCoworkStorage(data)
         let code = data.appendingPathComponent("ClaudeCode")
         let temporary = data.appendingPathComponent("tmp")
         try ensureDirectory(code); try ensureDirectory(temporary)

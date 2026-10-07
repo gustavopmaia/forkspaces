@@ -18,7 +18,7 @@ trap 'rm -rf "$STAGE"' EXIT
 APP="$STAGE/Forkspaces.app"
 mkdir -p "$APP/Contents/MacOS" "$APP/Contents/Resources"
 
-COMMON=($SRC/Profile.swift $SRC/Icon.swift)
+COMMON=($SRC/Profile.swift $SRC/Icon.swift $SRC/CoworkStorage.swift)
 CORE=($COMMON $SRC/BundleBuilder.swift $SRC/ProfileStore.swift)
 # Universal binaries: build each slice, then merge with lipo.
 compile() {  # compile <output> <sources…>

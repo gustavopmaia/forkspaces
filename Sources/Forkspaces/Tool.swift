@@ -39,7 +39,8 @@ struct Tool {
             try require((try? validateInitial("ABC")) == nil && (try validateInitial(" ")) == nil, "initial validation")
             print("Minimal profiles.json decodes")
             let fakeOriginal = root.appendingPathComponent("OriginalClaude")
-            let store = ProfileStore(locations: Locations(data: root.appendingPathComponent("Data"), apps: root.appendingPathComponent("Applications"), original: fakeOriginal),
+            let fakeCode = root.appendingPathComponent("OriginalCode")
+            let store = ProfileStore(locations: Locations(data: root.appendingPathComponent("Data"), apps: root.appendingPathComponent("Applications"), original: fakeOriginal, originalCode: fakeCode),
                                      builder: BundleBuilder(resources: resources, source: officialApp))
             let personal = try store.create(name: "Personal", color: profileColors[0])
             print("Created Personal")
@@ -112,9 +113,17 @@ struct Tool {
                 try ensureDirectory(fakeOriginal)
                 try Data(#"{"mcpServers":{"demo":{"command":"true"}}}"#.utf8).write(to: fakeOriginal.appendingPathComponent("claude_desktop_config.json"))
                 try Data("original opaque".utf8).write(to: fakeOriginal.appendingPathComponent("Cookies"))
+                let transcript = "projects/test-project/session.jsonl"
+                try ensureDirectory(fakeCode.appendingPathComponent("projects/test-project"))
+                try Data("opaque transcript".utf8).write(to: fakeCode.appendingPathComponent(transcript))
+                let codeBefore = snapshot(fakeCode)
                 let originalBefore = snapshot(fakeOriginal)
                 let fromOriginal = try store.create(name: "From Original", color: profileColors[4], source: .original)
                 try require(snapshot(fakeOriginal) == originalBefore, "original intact")
+                let importedTranscript = store.locations.storage(fromOriginal).appendingPathComponent("ClaudeCode/" + transcript)
+                try require(try Data(contentsOf: importedTranscript) == Data(contentsOf: fakeCode.appendingPathComponent(transcript)), "original Code transcripts imported")
+                try Data("changed copy".utf8).write(to: importedTranscript)
+                try require(snapshot(fakeCode) == codeBefore, "original Code transcripts independent")
                 let config = try JSONSerialization.jsonObject(with: Data(contentsOf: store.locations.storage(fromOriginal).appendingPathComponent("claude_desktop_config.json"))) as! [String: Any]
                 try require(config["mcpServers"] != nil && config["disableAutoUpdates"] as? Bool == true, "config kept and seeded")
                 print("Created profile from Claude original data; original unchanged")

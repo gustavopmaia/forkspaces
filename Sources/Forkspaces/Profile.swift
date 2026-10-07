@@ -25,6 +25,7 @@ struct Locations: Sendable {
     let apps: URL
     /// Claude Desktop's own data folder; only ever read as a copy source.
     var original = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent("Library/Application Support/Claude")
+    var originalCode = FileManager.default.homeDirectoryForCurrentUser.appendingPathComponent(".claude")
     static var standard: Locations {
         let home = FileManager.default.homeDirectoryForCurrentUser
         return Locations(data: home.appendingPathComponent("Library/Application Support/Forkspaces"),
@@ -186,4 +187,3 @@ struct LauncherConfiguration: Codable {
     let name: String
     let dataDirectory: String
 }
-

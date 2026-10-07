@@ -74,6 +74,15 @@ final class Model: ObservableObject {
         let store = store
         perform("Rebuilding \(p.name)…") { _ = try store.update(p, name: p.name, color: p.color, rebuild: true); return nil }
     }
+    func optimizeCowork(_ p: Profile) {
+        let store = store
+        perform("Optimizing Cowork storage for \(p.name)…") {
+            let shared = try store.optimizeCowork(p)
+            return shared > 0
+                ? "Cowork images now share \(ByteCountFormatter.string(fromByteCount: shared, countStyle: .file)) of matching blocks with another space. Each space keeps its own data. Already-shared blocks are included; APFS snapshots may delay free-space recovery."
+                : "No matching Cowork images were available. Close the other spaces and try again after Cowork has been installed in both."
+        }
+    }
     /// Rebuilds stopped outdated spaces one by one; data is kept. Running spaces are skipped.
     func rebuildAll() {
         let store = store, targets = outdated.filter { !running.contains($0.id) }
@@ -293,7 +302,7 @@ struct ContentView: View {
                                     .foregroundStyle(model.outdated.contains(p) ? Color.orange : Color.secondary)
                                 if let size = model.sizes[p.id] {
                                     Text("· \(ByteCountFormatter.string(fromByteCount: size, countStyle: .file))").font(.caption).foregroundStyle(.secondary)
-                                        .help("Disk used by this space's data")
+                                        .help("Allocated file sizes, including APFS blocks shared with other spaces. This is not exclusive disk usage.")
                                 }
                             }
                         }
@@ -315,6 +324,7 @@ struct ContentView: View {
                             Divider()
                             Button("Sign-in Help…") { login = p }
                             Button("Rebuild from Claude") { model.rebuild(p) }.disabled(running)
+                            Button("Optimize Cowork Storage") { model.optimizeCowork(p) }.disabled(running)
                             Divider()
                             Button("Delete Space…", role: .destructive) { deleting = p }.disabled(running)
                         } label: { Image(systemName: "ellipsis") }

@@ -90,6 +90,19 @@ After updating Forkspaces, rebuild existing spaces to pick up launcher fixes as 
 Spaces separate accounts; they are not a security sandbox. All spaces run as your macOS user,
 and some system logs and services remain shared.
 
+### Cowork disk usage
+
+After Cowork is installed in two spaces, close both and choose **Optimize Cowork Storage**
+from a space's menu. Forkspaces compares their VM images and uses APFS clones to share
+matching blocks, preserving the selected image byte-for-byte. Session disks and VM identities
+stay separate. No symlinks or hardlinks are used, and writes remain independent.
+
+Updated space launchers also try this once per image on startup when another space is stopped.
+The initial Cowork download still needs its normal disk space; optimization happens on a later
+launch. Rebuild existing spaces to get this automatic behavior. Optimization can take a minute
+and requires APFS on the same volume. Reported file sizes include shared blocks and will not
+necessarily decrease; APFS snapshots can delay the recovery of free space.
+
 ## Privacy
 
 Everything runs locally on your Mac.
@@ -99,6 +112,8 @@ Everything runs locally on your Mac.
 - Duplicate and import copy Claude's data folder as an opaque whole. The only Claude file Forkspaces
   edits is a space's own `claude_desktop_config.json`, to switch off auto-update and deep-link
   registration inside that space.
+- Importing the original installation also copies local Claude Code transcripts from
+  `~/.claude/projects` into the space's isolated `ClaudeCode/projects` folder.
 
 ## Contributing
 

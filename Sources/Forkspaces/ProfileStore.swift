@@ -89,6 +89,13 @@ struct ProfileStore: Sendable {
         return try create(name: name, color: p.color, initial: p.initial ?? "", icon: icon, source: .profile(p), fault: fault)
     }
 
+    func optimizeCowork(_ p: Profile) throws -> Int64 {
+        try locked {
+            guard try load().contains(p) else { throw Failure("The space changed. Reload and try again.") }
+            return try withStoppedProfile(p) { try optimizeCoworkStorage(locations.storage(p), force: true) }
+        }
+    }
+
     func withStoppedProfile<T>(_ p: Profile, _ body: () throws -> T) throws -> T {
         guard runningApps(p, at: locations.app(p)).isEmpty else { throw Failure("Stop \(p.name) before editing, rebuilding or deleting it.") }
         let path = locations.storage(p)
@@ -203,6 +210,16 @@ struct ProfileStore: Sendable {
         catch {
             if fileManager.fileExists(atPath: destination.path) { try fileManager.removeItem(at: destination) }
             try run("/usr/bin/ditto", [origin.path, destination.path])
+        }
+        // Desktop stores the session list in userData, but Code transcripts live separately.
+        // Copy the opaque projects tree into the config root used by our launcher.
+        if case .original = source {
+            let projects = locations.originalCode.appendingPathComponent("projects")
+            if fileManager.fileExists(atPath: projects.path) {
+                let code = destination.appendingPathComponent("ClaudeCode")
+                try ensureDirectory(code)
+                try run("/usr/bin/ditto", [projects.path, code.appendingPathComponent("projects").path])
+            }
         }
         // Forkspaces' own files and Chromium instance locks belong to the source, not the copy.
         for name in [spaceMarker, spaceLock, "icon", "SingletonLock", "SingletonSocket", "SingletonCookie"] {
