@@ -103,6 +103,17 @@ final class Model: ObservableObject {
             return "\(p.name) now uses a copy of \(source.name) data. Its previous data is kept in \(backup.path)."
         }
     }
+    func exportSpace(_ p: Profile, to url: URL, password: String) {
+        let store = store
+        performWithSourceClosed(.profile(p), "Exporting \(p.name)…", purpose: "exported", confirm: "Close and Export") {
+            try store.export(p, to: url, password: password)
+            return "\(p.name) was exported to \(url.lastPathComponent). Anyone with this file and its password can use the space's sign-in."
+        }
+    }
+    func importSpace(_ archive: URL, password: String) {
+        let store = store
+        perform("Importing \(archive.lastPathComponent)…") { "\(try store.importArchive(archive, password: password).name) was imported." }
+    }
     /// Copying open SQLite/LevelDB/IndexedDB storage is unsafe; ask before quitting the source.
     func performWithSourceClosed(_ source: DataSource?, _ label: String, purpose: String = "copied", confirm: String = "Close and Continue",
                                  work: @escaping @Sendable () throws -> String?) {
@@ -230,6 +241,7 @@ struct ContentView: View {
     @ViewState private var importing: Profile?
     @ViewState private var duplicating: Profile?
     @ViewState private var login: Profile?
+    @ViewState private var password: PasswordRequest?
     private let timer = Timer.publish(every: 2, on: .main, in: .common).autoconnect()
 
     var body: some View {
@@ -241,6 +253,8 @@ struct ContentView: View {
                         .font(.callout).foregroundStyle(.secondary)
                 }
                 Spacer()
+                Button(action: importSpace) { Label("Import…", systemImage: "square.and.arrow.down") }
+                    .disabled(!model.detected || model.busy != nil).help("Create a space from an export")
                 Button { editor = EditorTarget(profile: nil) } label: { Label("New Space", systemImage: "plus") }
                     .keyboardShortcut("n").disabled(!model.detected || model.busy != nil)
             }.padding(24)
@@ -293,6 +307,7 @@ struct ContentView: View {
                             Divider()
                             Button("Edit Space…") { editor = EditorTarget(profile: p) }.disabled(running)
                             Button("Duplicate Space…") { duplicating = p }
+                            Button("Export Space…") { export(p) }
                             Button("Import Space Data…") { importing = p }.disabled(running)
                             Divider()
                             Button("Reveal Data Folder") { NSWorkspace.shared.open(model.store.locations.storage(p)) }
@@ -337,6 +352,7 @@ struct ContentView: View {
                 model.importData(p, from: $0)
             }
         }
+        .sheet(item: $password) { PasswordSheet(request: $0) }
         .sheet(item: $login) { p in
             VStack(alignment: .leading, spacing: 18) {
                 Text("Sign in to \(p.name)").font(.title2.bold())
@@ -364,6 +380,61 @@ struct ContentView: View {
             Button("Archive and Delete Space", role: .destructive) { if let p = deleting { model.delete(p) }; deleting = nil }
             Button("Cancel", role: .cancel) { deleting = nil }
         } message: { Text("Its app and data will be moved to Forkspaces/Backups. The original Claude and other spaces are not changed.") }
+    }
+}
+
+extension ContentView {
+    private func export(_ p: Profile) {
+        let panel = NSSavePanel()
+        panel.allowedContentTypes = [.diskImage]
+        panel.nameFieldStringValue = "\(p.name) Space.dmg"
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        password = PasswordRequest(title: "Export \"\(p.name)\"", confirm: "Export", twice: true,
+                                   message: "The export contains this space's Claude data, including its active sign-in. It is encrypted with this password; anyone with the file and the password can use the account. On another Mac you may need to sign in again.") {
+            model.exportSpace(p, to: url, password: $0)
+        }
+    }
+
+    private func importSpace() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.diskImage]
+        panel.message = "Choose a space exported from Forkspaces."
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+        password = PasswordRequest(title: "Import \"\(url.deletingPathExtension().lastPathComponent)\"", confirm: "Import", twice: false,
+                                   message: "A new space is created from this export. Your existing spaces are not changed.") {
+            model.importSpace(url, password: $0)
+        }
+    }
+}
+
+struct PasswordRequest: Identifiable {
+    let id = UUID()
+    let title: String
+    let confirm: String
+    let twice: Bool
+    let message: String
+    let run: (String) -> Void
+}
+
+struct PasswordSheet: View {
+    let request: PasswordRequest
+    @Environment(\.dismiss) private var dismiss
+    @ViewState private var password = ""
+    @ViewState private var repeated = ""
+    private var valid: Bool { !password.isEmpty && (!request.twice || password == repeated) }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 18) {
+            Text(request.title).font(.title2.bold())
+            Text(request.message).fixedSize(horizontal: false, vertical: true)
+            SecureField("Password", text: $password).textFieldStyle(.roundedBorder)
+            if request.twice { SecureField("Repeat Password", text: $repeated).textFieldStyle(.roundedBorder) }
+            HStack {
+                Button("Cancel", role: .cancel) { dismiss() }.keyboardShortcut(.cancelAction)
+                Spacer()
+                Button(request.confirm) { request.run(password); dismiss() }.keyboardShortcut(.defaultAction).disabled(!valid)
+            }
+        }.padding(28).frame(width: 460)
     }
 }
 

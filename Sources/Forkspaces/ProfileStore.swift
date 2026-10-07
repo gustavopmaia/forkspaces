@@ -172,6 +172,7 @@ struct ProfileStore: Sendable {
         switch source {
         case .original: return locations.original
         case .profile(let p): return locations.storage(p)
+        case .archive(let url): return url
         }
     }
 
@@ -180,6 +181,7 @@ struct ProfileStore: Sendable {
         switch source {
         case .original: return NSRunningApplication.runningApplications(withBundleIdentifier: "com.anthropic.claudefordesktop")
         case .profile(let p): return runningApps(p, at: locations.app(p))
+        case .archive: return []
         }
     }
 
@@ -263,6 +265,53 @@ struct ProfileStore: Sendable {
                 return backup
             }
         }
+    }
+
+    // MARK: Export. A password-encrypted disk image: space.json (name, color, initial) and data/ (Claude data and icon).
+
+    /// The space is only read. The image contains its active sign-in, so a password is required.
+    func export(_ p: Profile, to destination: URL, password: String) throws {
+        guard !password.isEmpty else { throw Failure("Choose a password for the export.") }
+        try locked {
+            guard try load().contains(p) else { throw Failure("The space changed. Reload and try again.") }
+            let stage = locations.data.appendingPathComponent(".export-\(UUID().uuidString)")
+            try ensureDirectory(stage)
+            defer { try? fileManager.removeItem(at: stage) }
+            let data = stage.appendingPathComponent("data")
+            try copyData(from: .profile(p), to: data, id: p.id)
+            let icon = locations.customIcon(p)
+            if fileManager.fileExists(atPath: icon.path) {
+                try ensureDirectory(data.appendingPathComponent("icon"))
+                try fileManager.copyItem(at: icon, to: data.appendingPathComponent("icon/custom.png"))
+            }
+            try JSONEncoder().encode(p).write(to: stage.appendingPathComponent("space.json"))
+            try run("/usr/bin/hdiutil", ["create", "-quiet", "-ov", "-encryption", "AES-256", "-stdinpass", "-fs", "APFS", "-format", "UDZO",
+                                         "-volname", "Forkspaces Export", "-srcfolder", stage.path, destination.path], input: Data(password.utf8))
+        }
+    }
+
+    /// Creates a new space (new ID) from an export. The file is untrusted: appearance is validated and links are rejected.
+    func importArchive(_ archive: URL, password: String) throws -> Profile {
+        let mount = locations.data.appendingPathComponent(".mount-\(UUID().uuidString)")
+        try ensureDirectory(mount)
+        do {
+            try run("/usr/bin/hdiutil", ["attach", "-quiet", "-readonly", "-nobrowse", "-noautoopen", "-stdinpass", "-mountpoint", mount.path, archive.path],
+                    input: Data(password.utf8))
+        } catch { try? fileManager.removeItem(at: mount); throw Failure("Could not open the export. Check the password and that the file is a Forkspaces export.") }
+        defer {
+            if (try? run("/usr/bin/hdiutil", ["detach", "-quiet", "-force", mount.path])) != nil { try? fileManager.removeItem(at: mount) }
+        }
+        let data = mount.appendingPathComponent("data")
+        guard let saved = try? JSONDecoder().decode(Profile.self, from: Data(contentsOf: mount.appendingPathComponent("space.json"))),
+              (try? fileManager.destinationOfSymbolicLink(atPath: data.path)) == nil else { throw Failure("This file is not a Forkspaces export.") }
+        for case let url as URL in fileManager.enumerator(at: data, includingPropertiesForKeys: [.isSymbolicLinkKey]) ?? .init()
+            where (try? url.resourceValues(forKeys: [.isSymbolicLinkKey]).isSymbolicLink) == true {
+            throw Failure("This export contains symbolic links and was not imported.")
+        }
+        let base = try validateName(saved.name), taken = Set(try load().map { $0.name.lowercased() })
+        let name = ([base] + (2...99).map { "\(base.prefix(44)) \($0)" }).first { !taken.contains($0.lowercased()) } ?? base
+        let icon = (try? Data(contentsOf: data.appendingPathComponent("icon/custom.png"))).map(IconChange.custom) ?? .keep
+        return try create(name: name, color: saved.color, initial: saved.initial ?? "", icon: icon, source: .archive(data))
     }
 
     func install(_ p: Profile, replacing old: Profile?, commit: () throws -> Void = {}) throws {
