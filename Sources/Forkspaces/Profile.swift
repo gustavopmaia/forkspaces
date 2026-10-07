@@ -38,10 +38,13 @@ struct Locations: Sendable {
 enum DataSource: Sendable {
     case original
     case profile(Profile)
+    /// The data folder inside a mounted export.
+    case archive(URL)
     var name: String {
         switch self {
         case .original: return "Claude"
         case .profile(let p): return p.name
+        case .archive: return "the export"
         }
     }
 }
@@ -93,14 +96,16 @@ func writePlist(_ value: [String: Any], _ url: URL) throws {
 }
 
 @discardableResult
-func run(_ executable: String, _ args: [String]) throws -> Data {
-    let task = Process(), pipe = Pipe()
+func run(_ executable: String, _ args: [String], input: Data? = nil) throws -> Data {
+    let task = Process(), pipe = Pipe(), stdin = Pipe()
     task.executableURL = URL(fileURLWithPath: executable)
     task.arguments = args
     task.standardOutput = pipe
     // Never pipe Claude or credential material into errors/logs.
     task.standardError = FileHandle.nullDevice
+    if input != nil { task.standardInput = stdin }
     try task.run()
+    if let input { stdin.fileHandleForWriting.write(input); try? stdin.fileHandleForWriting.close() }
     let output = pipe.fileHandleForReading.readDataToEndOfFile()
     task.waitUntilExit()
     guard task.terminationStatus == 0 else {

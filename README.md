@@ -24,6 +24,7 @@ Forkspaces is source-available and free for personal and internal business use.
 - Independent sessions and app data
 - Custom icons (PNG, JPEG, HEIC), initials and colors
 - Duplicate spaces
+- Export and import spaces (password-encrypted)
 - Import existing Claude data
 - Native macOS app (SwiftUI, no dependencies)
 - Local-only

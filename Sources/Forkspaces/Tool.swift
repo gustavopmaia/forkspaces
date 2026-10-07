@@ -164,6 +164,23 @@ struct Tool {
             try require(snapshot(workData) == workBefore && ownedApp(store.locations.app(workNow), workNow), "source fine after deleting duplicate")
             print("Duplicated Work; independent data, identity and icon; deleting the copy left Work intact")
 
+            // Export to an encrypted image and import as a new space; wrong password and source are left alone.
+            let archive = root.appendingPathComponent("Work Space.dmg")
+            try store.export(workNow, to: archive, password: "correct horse")
+            try require(snapshot(workData) == workBefore, "export source intact")
+            do { _ = try store.importArchive(archive, password: "wrong"); throw Failure("wrong password accepted") }
+            catch let e as Failure { guard e.message.contains("Check the password") else { throw e } }
+            let imported = try store.importArchive(archive, password: "correct horse")
+            let importedData = store.locations.storage(imported)
+            try require(imported.id != workNow.id && imported.name == "Work 2" && imported.color == workNow.color, "imported identity")
+            try require(strip(snapshot(importedData)) == strip(workBefore), "imported data equal")
+            try require(try String(contentsOf: importedData.appendingPathComponent(spaceMarker), encoding: .utf8) == imported.id, "imported space owns its data")
+            try require(try Data(contentsOf: store.locations.customIcon(imported)) == Data(contentsOf: store.locations.customIcon(workNow)), "imported icon")
+            try verifySignature(store.locations.app(imported))
+            try require(try fileManager.contentsOfDirectory(atPath: store.locations.data.path).allSatisfy { !$0.hasPrefix(".export") && !$0.hasPrefix(".mount") }, "no export leftovers")
+            _ = try store.delete(imported)
+            print("Exported Work encrypted; wrong password refused; imported as Work 2 with equal data and icon")
+
             // Failed duplicates leave nothing behind.
             let profileDirs = { Set(try fileManager.contentsOfDirectory(atPath: store.locations.data.appendingPathComponent("profiles").path)) }
             let appsBefore = Set(try fileManager.contentsOfDirectory(atPath: store.locations.apps.path)), dirsBefore = try profileDirs(), registryBefore = try store.load()
