@@ -43,7 +43,7 @@ info = {'CFBundleIdentifier': 'dev.gustavomaia.forkspaces', 'CFBundleName': 'For
         'CFBundlePackageType': 'APPL', 'CFBundleShortVersionString': version, 'CFBundleVersion': build,
         'CFBundleIconFile': 'Forkspaces.icns', 'LSMinimumSystemVersion': '13.0',
         'NSHighResolutionCapable': True, 'NSPrincipalClass': 'NSApplication',
-        'NSHumanReadableCopyright': 'Copyright © 2026 Gustavo Maia. Source-available.',
+        'NSHumanReadableCopyright': 'Copyright © 2026 Gustavo Maia. GPL-3.0.',
         'ForkspacesRepositoryURL': repo,
         'LSApplicationCategoryType': 'public.app-category.developer-tools'}
 (app / 'Contents/Info.plist').write_bytes(plistlib.dumps(info))

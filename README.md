@@ -8,7 +8,7 @@ Forkspaces is a native macOS utility for running isolated app profiles side by s
 Initially built for Claude Desktop, Forkspaces creates independent spaces with separate sessions,
 application data, launchers and custom icons — without modifying the original application.
 
-Forkspaces is source-available and free for personal and internal business use.
+Forkspaces is free and open source under the GPL-3.0.
 
 <p align="center"><img src="docs/images/spaces.png" width="640" alt="Forkspaces main window with Personal and Work spaces"></p>
 
@@ -100,16 +100,9 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Report security issues privately as desc
 
 ## License
 
-Source-available under the **MIT License with the Commons Clause** — see [LICENSE](LICENSE).
+Forkspaces is free software under the **GNU General Public License v3.0** — see [LICENSE](LICENSE).
 
-In short (the LICENSE text is what counts):
-
-- Free to use, study, modify, fork and share at no charge, including for personal and educational use.
-- **Commercial internal use is permitted.** Companies and their employees can use Forkspaces in their own operations and customize it internally.
-- You may not sell Forkspaces or a fork of it, charge for access to it, or offer a paid product or hosted service whose value comes substantially from Forkspaces.
-- Keep the copyright and license notices.
-
-Forkspaces is not "open source" as defined by the OSI.
+You can use, study, modify and share it. If you distribute a modified version, it must stay under the GPL-3.0 with its source available.
 
 ## Unofficial Project
 
