@@ -19,3 +19,6 @@ xcuserdata/
 .local-archive/
 profiles/
 Backups/
+
+# Brag video output
+brag-output/
