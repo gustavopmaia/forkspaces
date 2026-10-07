@@ -35,8 +35,9 @@ struct Launcher {
             }
             return
         }
-        // Keep the lock across exec. The app runs at the same PID in the same bundle.
-        _ = fcntl(lock, F_SETFD, 0)
+        // Keep the lock in this process, but never pass it to Electron's helpers.
+        _ = fcntl(lock, F_SETFD, FD_CLOEXEC)
+        defer { close(lock) }
         let code = data.appendingPathComponent("ClaudeCode")
         let temporary = data.appendingPathComponent("tmp")
         try ensureDirectory(code); try ensureDirectory(temporary)
@@ -50,15 +51,24 @@ struct Launcher {
         CFPreferencesSetAppValue("disableAutoUpdates" as CFString, kCFBooleanTrue, config.bundleID as CFString)
         CFPreferencesSetAppValue("disableDeepLinkRegistration" as CFString, kCFBooleanTrue, config.bundleID as CFString)
         CFPreferencesAppSynchronize(config.bundleID as CFString)
-        let executable = bundle.appendingPathComponent("Contents/MacOS/Claude").path
-        guard fileManager.isExecutableFile(atPath: executable) else { throw Failure("Claude executable is missing. Rebuild this space.") }
+        // execv invalidates LaunchServices' process identity (NSRunningApplication PID -1),
+        // preventing Rectangle and other accessibility clients from finding our windows.
+        // Use the same entry point as Electron's native macOS executable, in this process.
+        let framework = bundle.appendingPathComponent("Contents/Frameworks/Electron Framework.framework/Electron Framework")
+        guard let library = dlopen(framework.path, RTLD_NOW | RTLD_GLOBAL),
+              let entry = dlsym(library, "ElectronMain") else {
+            throw Failure("Could not load Claude's Electron framework. Rebuild this space.")
+        }
+        typealias ElectronMain = @convention(c) (Int32, UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?) -> Int32
+        let electronMain = unsafeBitCast(entry, to: ElectronMain.self)
+        let executable = Bundle.main.executableURL!.path
         let args = [executable, "--user-data-dir=\(data.path)", "--disk-cache-dir=\(data.appendingPathComponent("Cache").path)"]
-        let cArgs = args.map { strdup($0) } + [nil]
-        defer { for pointer in cArgs { free(pointer) }; close(lock) }
+        var cArgs = args.map { strdup($0) } + [nil]
+        defer { for pointer in cArgs { free(pointer) } }
         // No auth URLs, cookies, console output or tokens are collected by Forkspaces.
         let null = Darwin.open("/dev/null", O_WRONLY)
         if null >= 0 { dup2(null, STDOUT_FILENO); dup2(null, STDERR_FILENO); close(null) }
-        cArgs.withUnsafeBufferPointer { _ = execv(executable, $0.baseAddress!) }
-        throw Failure("macOS could not execute this space (errno \(errno)). Rebuild it in Forkspaces.")
+        let status = cArgs.withUnsafeMutableBufferPointer { electronMain(Int32(args.count), $0.baseAddress!) }
+        exit(status)
     }
 }

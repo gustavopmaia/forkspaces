@@ -29,7 +29,7 @@ compile() {  # compile <output> <sources…>
   lipo -create "$STAGE/slice.arm64" "$STAGE/slice.x86_64" -output "$out"
   rm "$STAGE/slice.arm64" "$STAGE/slice.x86_64"
 }
-compile "$APP/Contents/Resources/ForkspacesLauncher" $COMMON $SRC/Launcher.swift
+compile "$APP/Contents/Resources/ForkspacesLauncher" $COMMON $SRC/Launcher.swift -Xlinker -rpath -Xlinker @executable_path/../Frameworks
 compile "$APP/Contents/Resources/ForkspacesTool" $CORE $SRC/Tool.swift
 compile "$APP/Contents/MacOS/Forkspaces" $CORE $SRC/LoginRouting.swift $SRC/App.swift
 cp Resources/Space.entitlements Resources/Help.html "$APP/Contents/Resources/"

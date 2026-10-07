@@ -67,6 +67,11 @@ Integration tests build real spaces in a throwaway folder (they need Claude Desk
 build/Forkspaces.app/Contents/Resources/ForkspacesTool integration build/integration
 ```
 
+To check window-manager compatibility, open a disposable test space and run
+`swift scripts/check-window-accessibility.swift <space-bundle-id>` from a terminal with
+Accessibility permission. This checks its process identity and resizes/restores a window
+through the same macOS API used by Rectangle.
+
 ## How It Works
 
 ```
@@ -80,6 +85,7 @@ build/Forkspaces.app/Contents/Resources/ForkspacesTool integration build/integra
 Each space gets its own copy of Claude with its own bundle identifier, icon and data directory
 (`--user-data-dir`), so sessions, cookies and settings never mix. Copies use APFS clones,
 so they take little extra disk space. After Claude updates, use **Rebuild from Claude** on each space.
+After updating Forkspaces, rebuild existing spaces to pick up launcher fixes as well.
 
 Spaces separate accounts; they are not a security sandbox. All spaces run as your macOS user,
 and some system logs and services remain shared.
