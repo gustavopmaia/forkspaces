@@ -343,6 +343,9 @@ struct ContentView: View {
                         Button("Restore") { model.restoreRoute() }
                     }
                 }
+                if let version = Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String {
+                    Text("Forkspaces v\(version)").font(.caption).foregroundStyle(.secondary)
+                }
             }.font(.callout).padding(16)
         }
         .onReceive(timer) { _ in model.refreshStatus() }
