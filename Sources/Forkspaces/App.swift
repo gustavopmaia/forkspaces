@@ -16,6 +16,7 @@ final class Model: ObservableObject {
     @Published var icons: [String: NSImage] = [:]
     @Published var quitRequest: QuitRequest?
     @Published var claudeVersion: String?
+    @Published var sizes: [String: Int64] = [:]
     let store = ProfileStore(locations: .standard,
                              builder: BundleBuilder(resources: Bundle.main.resourceURL!, source: officialApp))
     var routing: LoginRouting { LoginRouting(root: store.locations.data) }
@@ -35,6 +36,12 @@ final class Model: ObservableObject {
             (p.id, iconPreview(initial: p.iconInitial, color: p.color, image: NSImage(contentsOf: store.locations.customIcon(p))))
         })
         refreshStatus()
+        let folders = profiles.map { ($0.id, store.locations.storage($0)) }
+        Task {
+            sizes = await Task.detached(priority: .utility) {
+                Dictionary(uniqueKeysWithValues: folders.map { ($0.0, diskUsage($0.1)) })
+            }.value
+        }
     }
     func refreshStatus() {
         running = Set(profiles.filter { !runningApps($0, at: store.locations.app($0)).isEmpty }.map(\.id))
@@ -270,6 +277,10 @@ struct ContentView: View {
                                 Text(running ? "Running" : "Stopped").font(.caption).foregroundStyle(.secondary)
                                 Text("· Claude \(p.sourceVersion)").font(.caption)
                                     .foregroundStyle(model.outdated.contains(p) ? Color.orange : Color.secondary)
+                                if let size = model.sizes[p.id] {
+                                    Text("· \(ByteCountFormatter.string(fromByteCount: size, countStyle: .file))").font(.caption).foregroundStyle(.secondary)
+                                        .help("Disk used by this space's data")
+                                }
                             }
                         }
                         Spacer()

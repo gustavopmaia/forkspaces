@@ -133,6 +133,15 @@ func rejectSymlink(_ url: URL) throws {
     }
 }
 
+/// Allocated bytes under a folder. Sizes only; file contents are never read. APFS clones still count in full.
+func diskUsage(_ dir: URL) -> Int64 {
+    var total: Int64 = 0
+    for case let url as URL in fileManager.enumerator(at: dir, includingPropertiesForKeys: [.totalFileAllocatedSizeKey]) ?? .init() {
+        total += Int64((try? url.resourceValues(forKeys: [.totalFileAllocatedSizeKey]).totalFileAllocatedSize) ?? 0)
+    }
+    return total
+}
+
 func ownedApp(_ url: URL, _ profile: Profile) -> Bool {
     guard let info = try? readPlist(url.appendingPathComponent("Contents/Info.plist")) else { return false }
     return info["CFBundleIdentifier"] as? String == profile.bundleID && info["ForkspacesSpaceID"] as? String == profile.id
