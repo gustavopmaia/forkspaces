@@ -10,11 +10,11 @@ application data, launchers and custom icons — without modifying the original 
 
 Forkspaces is source-available and free for personal and internal business use.
 
-<p align="center"><img src="docs/images/spaces.png" width="560" alt="Forkspaces main window with Personal and Work spaces"></p>
+<p align="center"><img src="docs/images/spaces.png" width="640" alt="Forkspaces main window with Personal and Work spaces"></p>
 
 <p align="center">
-  <img src="docs/images/new-space.png" width="400" alt="New Space sheet">
-  <img src="docs/images/edit-space.png" width="400" alt="Edit Space sheet">
+  <img src="docs/images/new-space.png" width="420" alt="New Space sheet">
+  <img src="docs/images/edit-space.png" width="420" alt="Edit Space sheet">
 </p>
 
 ## Features
@@ -24,6 +24,7 @@ Forkspaces is source-available and free for personal and internal business use.
 - Independent sessions and app data
 - Custom icons (PNG, JPEG, HEIC), initials and colors
 - Duplicate spaces
+- Disk usage and Claude version shown per space
 - Export and import spaces (password-encrypted)
 - Import existing Claude data
 - Native macOS app (SwiftUI, no dependencies)
