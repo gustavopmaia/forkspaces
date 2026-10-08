@@ -153,10 +153,21 @@ func ownedApp(_ url: URL, _ profile: Profile) -> Bool {
     return info["CFBundleIdentifier"] as? String == profile.bundleID && info["ForkspacesSpaceID"] as? String == profile.id
 }
 
+/// The inner bundle retains Anthropic's bundle ID and signature. Always select it
+/// by its exact path, since other spaces and the original have the same bundle ID.
+func claudeRuntime(in app: URL) -> URL {
+    app.appendingPathComponent("Contents/Helpers/Claude.app")
+}
+
 func runningApps(_ profile: Profile, at url: URL) -> [NSRunningApplication] {
-    NSRunningApplication.runningApplications(withBundleIdentifier: profile.bundleID).filter {
+    let runtime = claudeRuntime(in: url).standardizedFileURL
+    let children = NSRunningApplication.runningApplications(withBundleIdentifier: "com.anthropic.claudefordesktop").filter {
+        $0.bundleURL?.standardizedFileURL == runtime
+    }
+    let launchers = NSRunningApplication.runningApplications(withBundleIdentifier: profile.bundleID).filter {
         $0.bundleURL?.standardizedFileURL == url.standardizedFileURL
     }
+    return children + launchers
 }
 
 func stopProfile(_ profile: Profile, at url: URL) async throws {

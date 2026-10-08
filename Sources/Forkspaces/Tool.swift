@@ -43,7 +43,15 @@ struct Tool {
             let store = ProfileStore(locations: Locations(data: root.appendingPathComponent("Data"), apps: root.appendingPathComponent("Applications"), original: fakeOriginal, originalCode: fakeCode),
                                      builder: BundleBuilder(resources: resources, source: officialApp))
             let personal = try store.create(name: "Personal", color: profileColors[0])
-            print("Created Personal")
+            let runtime = claudeRuntime(in: store.locations.app(personal))
+            try verifyClaudeRuntime(runtime)
+            for relative in ["Contents/Info.plist", "Contents/MacOS/Claude", "Contents/embedded.provisionprofile"] {
+                let source = officialApp.appendingPathComponent(relative)
+                if fileManager.fileExists(atPath: source.path) {
+                    try require(try Data(contentsOf: runtime.appendingPathComponent(relative)) == Data(contentsOf: source), "official runtime unchanged: \(relative)")
+                }
+            }
+            print("Created Personal; Anthropic signature and original runtime identity preserved")
             let work = try store.create(name: "Work", color: profileColors[1])
             print("Created Work")
             try require(personal.bundleID != work.bundleID, "unique bundle IDs")
@@ -89,7 +97,8 @@ struct Tool {
             try require(icns(recolored, store) != customIcns && icns(recolored, store) != defaultIcon, "reset icns")
             try verifySignature(store.locations.app(recolored))
             let custom2 = try store.update(recolored, name: recolored.name, color: recolored.color, initial: "", icon: .custom(png))
-            print("Custom icon set, changed, reset; signature valid; data untouched")
+            try verifyClaudeRuntime(claudeRuntime(in: store.locations.app(custom2)))
+            print("Custom icon set, changed, reset; wrapper and Anthropic signatures valid; data untouched")
 
             // Clone profile A into B: source untouched, copies independent.
             try ensureDirectory(store.locations.storage(custom2).appendingPathComponent("IndexedDB/https_claude.ai_0.indexeddb.leveldb"))

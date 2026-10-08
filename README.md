@@ -76,19 +76,32 @@ through the same macOS API used by Rectangle.
 
 ```
 /Applications/Claude.app  (never modified)
-        │  local APFS copy, own bundle ID, ad-hoc signature
+        │  intact, Anthropic-signed APFS copy inside each launcher
         ▼
 ~/Applications/Forkspaces/Claude Work.app      ──▶  …/Forkspaces/profiles/work-…/
 ~/Applications/Forkspaces/Claude Personal.app  ──▶  …/Forkspaces/profiles/personal-…/
 ```
 
-Each space gets its own copy of Claude with its own bundle identifier, icon and data directory
-(`--user-data-dir`), so sessions, cookies and settings never mix. Copies use APFS clones,
-so they take little extra disk space. After Claude updates, use **Rebuild from Claude** on each space.
+Each space gets its own launcher with a unique bundle identifier and icon, an intact signed copy
+of Claude, and a separate data directory (`--user-data-dir`). The launcher opens that copy through
+LaunchServices and holds the space lock until it closes. Copies use APFS clones, so they take
+little extra disk space. After Claude updates, use **Rebuild from Claude** on each space.
 After updating Forkspaces, rebuild existing spaces to pick up launcher fixes as well.
 
 Spaces separate accounts; they are not a security sandbox. All spaces run as your macOS user,
-and some system logs and services remain shared.
+and some system logs and services remain shared, including Claude's macOS Keychain groups.
+
+### Built-in browser and computer connection
+
+Rebuild existing spaces after updating Forkspaces. Older launchers re-signed Claude, removing
+Anthropic's Keychain authorization and preventing Cowork from identifying the connected desktop.
+Current launchers preserve the official signature and provisioning profile, including the device-key
+access group. The original `/Applications/Claude.app` does not need to be running.
+
+Open spaces from Forkspaces or their named launcher apps. The signed inner app retains Claude's
+name and icon in macOS; pin the **named launcher**, not the inner Claude app, to the Dock. Starting
+the inner app directly omits the space's data-directory arguments. Browser login routing is forwarded
+to the selected runtime path; stopping a space targets that path, not every app with Claude's bundle ID.
 
 ### Cowork disk usage
 

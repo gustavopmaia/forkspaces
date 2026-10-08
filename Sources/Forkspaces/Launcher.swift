@@ -5,19 +5,36 @@ import Darwin
 @main
 struct Launcher {
     static func main() {
+        let application = NSApplication.shared
+        let delegate = SpaceLauncher()
+        application.delegate = delegate
+        application.setActivationPolicy(.accessory)
+        withExtendedLifetime(delegate) { application.run() }
+    }
+}
+
+final class SpaceLauncher: NSObject, NSApplicationDelegate {
+    private var lock: Int32 = -1
+    private var child: NSRunningApplication?
+    private var pendingURLs: [URL] = []
+    private var timer: Timer?
+    private let bundle = Bundle.main.bundleURL
+
+    func applicationDidFinishLaunching(_ notification: Notification) {
         do { try launch() }
-        catch {
-            let alert = NSAlert()
-            alert.messageText = "This Claude space could not open"
-            alert.informativeText = error.localizedDescription
-            alert.addButton(withTitle: "OK")
-            alert.runModal()
-            exit(1)
-        }
+        catch { fail(error) }
     }
 
-    static func launch() throws {
-        let bundle = Bundle.main.bundleURL
+    private func fail(_ error: Error) {
+        let alert = NSAlert()
+        alert.messageText = "This Claude space could not open"
+        alert.informativeText = error.localizedDescription
+        alert.addButton(withTitle: "OK")
+        alert.runModal()
+        NSApplication.shared.terminate(nil)
+    }
+
+    private func launch() throws {
         let configURL = bundle.appendingPathComponent("Contents/Resources/Forkspaces.json")
         let config = try JSONDecoder().decode(LauncherConfiguration.self, from: Data(contentsOf: configURL))
         guard validID(config.profileID), config.bundleID == spaceBundlePrefix + config.profileID,
@@ -26,51 +43,79 @@ struct Launcher {
         guard data.path == config.dataDirectory, data.lastPathComponent == config.profileID else { throw Failure("Invalid space data path.") }
         try rejectSymlink(data)
         guard try String(contentsOf: data.appendingPathComponent(spaceMarker), encoding: .utf8) == config.profileID else { throw Failure("Space data is missing or belongs to another space.") }
-        let lock = Darwin.open(data.appendingPathComponent(spaceLock).path, O_CREAT | O_RDWR | O_NOFOLLOW, 0o600)
+        lock = Darwin.open(data.appendingPathComponent(spaceLock).path, O_CREAT | O_RDWR | O_NOFOLLOW, 0o600)
         guard lock >= 0 else { throw Failure("Could not lock space storage.") }
         guard flock(lock, LOCK_EX | LOCK_NB) == 0 else {
-            close(lock)
-            for app in NSRunningApplication.runningApplications(withBundleIdentifier: config.bundleID) where app.processIdentifier != getpid() && app.bundleURL == bundle {
-                app.activate(options: [.activateAllWindows])
-            }
+            NSRunningApplication.runningApplications(withBundleIdentifier: "com.anthropic.claudefordesktop")
+                .first { $0.bundleURL?.standardizedFileURL == claudeRuntime(in: bundle).standardizedFileURL }?
+                .activate(options: [.activateAllWindows])
+            NSApplication.shared.terminate(nil)
             return
         }
-        // Keep the lock in this process, but never pass it to Electron's helpers.
         _ = fcntl(lock, F_SETFD, FD_CLOEXEC)
-        defer { close(lock) }
-        // Best effort, before Electron can start the VM. Failure leaves images intact.
         _ = try? optimizeCoworkStorage(data)
         let code = data.appendingPathComponent("ClaudeCode")
         let temporary = data.appendingPathComponent("tmp")
         try ensureDirectory(code); try ensureDirectory(temporary)
-        unsetenv("CLAUDE_USER_DATA_DIR")
-        unsetenv("ELECTRON_RUN_AS_NODE")
-        unsetenv("NODE_OPTIONS")
-        setenv("CLAUDE_CONFIG_DIR", code.path, 1)
-        setenv("CLAUDE_SECURESTORAGE_CONFIG_DIR", code.path, 1)
-        setenv("TMPDIR", temporary.path + "/", 1)
-        // The local macOS preference domain is unique. HOME is intentionally unchanged.
-        CFPreferencesSetAppValue("disableAutoUpdates" as CFString, kCFBooleanTrue, config.bundleID as CFString)
-        CFPreferencesSetAppValue("disableDeepLinkRegistration" as CFString, kCFBooleanTrue, config.bundleID as CFString)
-        CFPreferencesAppSynchronize(config.bundleID as CFString)
-        // execv invalidates LaunchServices' process identity (NSRunningApplication PID -1),
-        // preventing Rectangle and other accessibility clients from finding our windows.
-        // Use the same entry point as Electron's native macOS executable, in this process.
-        let framework = bundle.appendingPathComponent("Contents/Frameworks/Electron Framework.framework/Electron Framework")
-        guard let library = dlopen(framework.path, RTLD_NOW | RTLD_GLOBAL),
-              let entry = dlsym(library, "ElectronMain") else {
-            throw Failure("Could not load Claude's Electron framework. Rebuild this space.")
+        let runtime = claudeRuntime(in: bundle)
+        guard FileManager.default.fileExists(atPath: runtime.appendingPathComponent("Contents/MacOS/Claude").path) else {
+            throw Failure("Claude's signed runtime is missing. Rebuild this space.")
         }
-        typealias ElectronMain = @convention(c) (Int32, UnsafeMutablePointer<UnsafeMutablePointer<CChar>?>?) -> Int32
-        let electronMain = unsafeBitCast(entry, to: ElectronMain.self)
-        let executable = Bundle.main.executableURL!.path
-        let args = [executable, "--user-data-dir=\(data.path)", "--disk-cache-dir=\(data.appendingPathComponent("Cache").path)"]
-        var cArgs = args.map { strdup($0) } + [nil]
-        defer { for pointer in cArgs { free(pointer) } }
-        // No auth URLs, cookies, console output or tokens are collected by Forkspaces.
-        let null = Darwin.open("/dev/null", O_WRONLY)
-        if null >= 0 { dup2(null, STDOUT_FILENO); dup2(null, STDERR_FILENO); close(null) }
-        let status = cArgs.withUnsafeMutableBufferPointer { electronMain(Int32(args.count), $0.baseAddress!) }
-        exit(status)
+        let options = NSWorkspace.OpenConfiguration()
+        options.createsNewApplicationInstance = true
+        options.arguments = ["--user-data-dir=\(data.path)", "--disk-cache-dir=\(data.appendingPathComponent("Cache").path)"]
+        var environment = ProcessInfo.processInfo.environment
+        for key in ["CLAUDE_USER_DATA_DIR", "ELECTRON_RUN_AS_NODE", "NODE_OPTIONS"] { environment.removeValue(forKey: key) }
+        environment["CLAUDE_CONFIG_DIR"] = code.path
+        environment["CLAUDE_SECURESTORAGE_CONFIG_DIR"] = code.path
+        environment["TMPDIR"] = temporary.path + "/"
+        options.environment = environment
+        // LaunchServices must launch the signed executable, in its own process:
+        // dlopen loses its Keychain entitlements; execv loses its window identity.
+        NSWorkspace.shared.openApplication(at: runtime, configuration: options) { app, error in
+            DispatchQueue.main.async {
+                guard let app, app.bundleURL?.standardizedFileURL == runtime.standardizedFileURL else {
+                    self.fail(error ?? Failure("macOS did not open this space's Claude runtime.")); return
+                }
+                self.child = app
+                self.forwardURLs()
+                self.timer = Timer.scheduledTimer(withTimeInterval: 0.5, repeats: true) { _ in
+                    if app.isTerminated { NSApplication.shared.terminate(nil) }
+                }
+            }
+        }
+    }
+
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        child?.activate(options: [.activateAllWindows])
+        return false
+    }
+
+    func application(_ application: NSApplication, open urls: [URL]) {
+        pendingURLs.append(contentsOf: urls.filter { ["claude", "msauth.com.anthropic.claudefordesktop"].contains($0.scheme ?? "") })
+        forwardURLs()
+    }
+
+    private func forwardURLs() {
+        guard child != nil, !pendingURLs.isEmpty else { return }
+        let urls = pendingURLs
+        pendingURLs.removeAll()
+        let options = NSWorkspace.OpenConfiguration()
+        options.allowsRunningApplicationSubstitution = false
+        // Address this bundle path explicitly, never the system's default Claude.
+        NSWorkspace.shared.open(urls, withApplicationAt: claudeRuntime(in: bundle), configuration: options) { _, error in
+            if error != nil { DispatchQueue.main.async { self.fail(Failure("Could not forward browser login to this space. Try signing in again.")) } }
+        }
+    }
+
+    func applicationShouldTerminate(_ sender: NSApplication) -> NSApplication.TerminateReply {
+        guard let child, !child.isTerminated else { return .terminateNow }
+        child.terminate()
+        return .terminateCancel
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        timer?.invalidate()
+        if lock >= 0 { close(lock) }
     }
 }

@@ -186,7 +186,10 @@ struct ProfileStore: Sendable {
     /// Apps that must quit before their data can be copied consistently (SQLite/LevelDB/IndexedDB).
     func apps(using source: DataSource) -> [NSRunningApplication] {
         switch source {
-        case .original: return NSRunningApplication.runningApplications(withBundleIdentifier: "com.anthropic.claudefordesktop")
+        case .original:
+            return NSRunningApplication.runningApplications(withBundleIdentifier: "com.anthropic.claudefordesktop").filter {
+                $0.bundleURL?.standardizedFileURL == builder.source.standardizedFileURL
+            }
         case .profile(let p): return runningApps(p, at: locations.app(p))
         case .archive: return []
         }
